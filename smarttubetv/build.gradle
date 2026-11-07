@@ -109,6 +109,9 @@ android {
 
             if (keystorePropertiesFile.exists()) {
                 signingConfig signingConfigs.release
+            } else {
+                // Keep release APKs installable when no key is configured (e.g. forks)
+                signingConfig signingConfigs.debug
             }
         }
         // Use same key for release and debug for testing
@@ -166,6 +169,20 @@ android {
         ststable {
             applicationId "org.smarttube.stable"
             targetSdkVersion project.properties.compileSdkVersion
+        }
+        // Phone build: same app, landscape-locked with touch seeking. Installs next to the TV builds.
+        stphone {
+            applicationId "org.smarttube.phone"
+            targetSdkVersion project.properties.compileSdkVersion
+
+            // Library modules only define stbeta/ststable/stfdroid. Use their F-Droid variant:
+            // no Firebase, and no auto-updater that would replace this build with the TV one.
+            matchingFallbacks = ['stfdroid']
+
+            // Modern phones are 64-bit only
+            ndk {
+                abiFilters 'arm64-v8a'
+            }
         }
         stfdroid {
             applicationId "app.smarttube.fdroid"

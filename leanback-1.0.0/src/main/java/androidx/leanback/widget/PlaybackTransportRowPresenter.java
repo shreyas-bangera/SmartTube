@@ -22,6 +22,7 @@ import android.os.Build;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -241,6 +242,29 @@ public class PlaybackTransportRowPresenter extends PlaybackRowPresenter {
                     }
         };
 
+        void updateProgressFromTouch(float x) {
+            if (mTotalTimeInMs <= 0 || mSeekClient == null) {
+                return;
+            }
+            int width = mProgressBar.getWidth();
+            if (width <= 0) {
+                return;
+            }
+            double ratio = Math.max(0, Math.min(1, x / width));
+            long newPos = (long) (ratio * mTotalTimeInMs);
+            if (mPositions != null && mPositionsLength > 0) {
+                int index = Arrays.binarySearch(mPositions, 0, mPositionsLength, newPos);
+                int thumbHeroIndex = index >= 0 ? index : Math.max(0, -1 - index - 1);
+                if (thumbHeroIndex >= mPositionsLength) {
+                    thumbHeroIndex = mPositionsLength - 1;
+                }
+                updateThumbsInSeek(thumbHeroIndex, thumbHeroIndex > mThumbHeroIndex);
+            }
+            mProgressBar.setProgress((int) (ratio * Integer.MAX_VALUE));
+            onSetCurrentPositionLabel(newPos);
+            mSeekClient.onSeekPositionChanged(newPos);
+        }
+
         boolean onForward() {
             if (!startSeek()) {
                 return false;
@@ -333,6 +357,38 @@ public class PlaybackTransportRowPresenter extends PlaybackRowPresenter {
                 @Override
                 public boolean onAccessibilitySeekBackward() {
                     return onBackward();
+                }
+            });
+            // Phone/touch support: drag on the progress bar to seek, release to commit.
+            mProgressBar.setOnTouchListener(new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View view, MotionEvent event) {
+                    switch (event.getActionMasked()) {
+                        case MotionEvent.ACTION_DOWN:
+                            if (!startSeek()) {
+                                return false;
+                            }
+                            view.getParent().requestDisallowInterceptTouchEvent(true);
+                            updateProgressFromTouch(event.getX());
+                            return true;
+                        case MotionEvent.ACTION_MOVE:
+                            if (mInSeek) {
+                                updateProgressFromTouch(event.getX());
+                            }
+                            return true;
+                        case MotionEvent.ACTION_UP:
+                            if (mInSeek) {
+                                updateProgressFromTouch(event.getX());
+                                stopSeek(false);
+                            }
+                            view.getParent().requestDisallowInterceptTouchEvent(false);
+                            return true;
+                        case MotionEvent.ACTION_CANCEL:
+                            stopSeek(true);
+                            view.getParent().requestDisallowInterceptTouchEvent(false);
+                            return true;
+                    }
+                    return false;
                 }
             });
             mProgressBar.setMax(Integer.MAX_VALUE); //current progress will be a fraction of this
