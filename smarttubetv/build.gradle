@@ -173,6 +173,7 @@ android {
         // Phone build: same app, landscape-locked with touch seeking. Installs next to the TV builds.
         stphone {
             applicationId "org.smarttube.phone"
+            minSdkVersion 26 // Android 8.0+, keeps the phone UI free of legacy code paths
             targetSdkVersion project.properties.compileSdkVersion
 
             // Library modules only define stbeta/ststable/stfdroid. Use their F-Droid variant:
